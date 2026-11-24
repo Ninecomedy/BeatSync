@@ -17,6 +17,11 @@ async function range(page, id, value) {
 test('account sync, picture persistence and six song leaderboards', async ({ page, browser }) => {
   const credentials = await registerLogin(page, 'AccountQA');
   await expect(page.locator('.start-screen')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Play Neon Pulse', exact: true }).click();
+  await expect(page.locator('#notes')).toBeVisible();
+  await page.locator('#pause').click();
+  await page.locator('#quit').click();
+  await expect(page.getByRole('heading', { name: 'SONG SELECTION' })).toBeVisible();
   await expect(page.locator('[data-song-board]')).toHaveCount(6);
   for (const id of ['neon', 'monitoring', 'yuusha', 'hibana', 'mesmerizer', 'rabbit-hole']) {
     await page.locator('[data-song-board="' + id + '"]').click();
@@ -33,19 +38,29 @@ test('account sync, picture persistence and six song leaderboards', async ({ pag
   await page.getByRole('button', { name: 'Save Changes' }).click();
   await expect(page.locator('#settings-status')).toContainText('Settings saved');
   await page.getByRole('button', { name: 'Profile', exact: true }).click();
+  await page
+    .locator('#profile-photo')
+    .setInputFiles({ name: 'bad.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg/>') });
+  await expect(page.locator('#photo-status')).toContainText('Choose a JPEG');
+  await page
+    .locator('#profile-photo')
+    .setInputFiles({
+      name: 'large.png',
+      mimeType: 'image/png',
+      buffer: Buffer.alloc(5 * 1024 * 1024 + 1),
+    });
+  await expect(page.locator('#photo-status')).toContainText('smaller than 5 MB');
   const png = await page.evaluate(() => {
     const c = document.createElement('canvas');
     c.width = c.height = 16;
     c.getContext('2d').fillRect(0, 0, 16, 16);
     return c.toDataURL().split(',')[1];
   });
-  await page
-    .locator('#profile-photo')
-    .setInputFiles({
-      name: 'avatar.png',
-      mimeType: 'image/png',
-      buffer: Buffer.from(png, 'base64'),
-    });
+  await page.locator('#profile-photo').setInputFiles({
+    name: 'avatar.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(png, 'base64'),
+  });
   await expect(page.getByAltText('Profile picture')).toBeVisible();
   const photo = await page.getByAltText('Profile picture').getAttribute('src');
   const context = await browser.newContext({
@@ -63,6 +78,34 @@ test('account sync, picture persistence and six song leaderboards', async ({ pag
     await expect(other.getByAltText('Profile picture')).toHaveAttribute('src', photo);
     await other.reload();
     await expect(other.getByAltText('Profile picture')).toHaveAttribute('src', photo);
+    // Replace the thumbnail and verify the original session sees it after refresh.
+    const changed = await other.evaluate(() => {
+      const c = document.createElement('canvas');
+      c.width = 200;
+      c.height = 100;
+      const x = c.getContext('2d');
+      x.fillStyle = 'red';
+      x.fillRect(0, 0, 200, 100);
+      return c.toDataURL().split(',')[1];
+    });
+    await other
+      .locator('#profile-photo')
+      .setInputFiles({
+        name: 'changed.png',
+        mimeType: 'image/png',
+        buffer: Buffer.from(changed, 'base64'),
+      });
+    await expect(other.getByAltText('Profile picture')).not.toHaveAttribute('src', photo);
+    await expect(other.getByAltText('Profile picture')).toHaveJSProperty('naturalWidth', 128);
+    await expect(other.getByAltText('Profile picture')).toHaveJSProperty('naturalHeight', 128);
+    const changedPhoto = await other.getByAltText('Profile picture').getAttribute('src');
+    await page.reload();
+    await expect(page.getByAltText('Profile picture')).toHaveAttribute('src', changedPhoto);
+    await other.getByRole('button', { name: 'Remove picture', exact: true }).click();
+    await expect(other.getByAltText('Profile picture')).toHaveCount(0);
+    await page.reload();
+    await expect(page.locator('.profile h2')).toHaveText('AccountQA');
+    await expect(page.getByAltText('Profile picture')).toHaveCount(0);
     await other.getByRole('button', { name: 'Log out' }).click();
     await expect(other.getByRole('heading', { name: 'Login', exact: true })).toBeVisible();
     await registerLogin(other, 'IsolatedQA');

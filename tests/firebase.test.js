@@ -10,6 +10,7 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  deleteField,
   getDoc,
   getDocs,
   collection,
@@ -225,6 +226,9 @@ test('account picture: bounded private thumbnail preserves name and timestamps',
   ])
     await assertFails(updateDoc(ref, { photo }));
   await assertSucceeds(updateDoc(ref, { photo: 'data:image/webp;base64,BBBB' }));
+  await assertFails(updateDoc(doc(b, 'profiles', 'alice'), { photo: deleteField() }));
+  await assertSucceeds(updateDoc(ref, { photo: deleteField() }));
+  await assertSucceeds(getDoc(ref));
 });
 test('account leaderboard: song filter reads existing immutable scores', async () => {
   const ref = doc(a, 'scores', 'account-check');

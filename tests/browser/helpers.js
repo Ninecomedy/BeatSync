@@ -9,12 +9,6 @@ export async function registerLogin(page, prefix = 'Player') {
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByLabel('Confirm Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Create Account' }).click();
-  await expect(page.getByRole('heading', { name: 'Login', exact: true })).toBeVisible({
-    timeout: 20000,
-  });
-  await page.getByLabel('Email', { exact: true }).fill(email);
-  await page.getByLabel('Password', { exact: true }).fill(password);
-  await page.getByRole('button', { name: 'Login', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'SONG SELECTION' })).toBeVisible({
     timeout: 20000,
   });

@@ -12,6 +12,7 @@ import {
   getDoc,
   updateDoc,
   deleteDoc,
+  deleteField,
   setDoc,
   onSnapshot,
   query,
@@ -29,7 +30,7 @@ export async function register(name, email, password) {
   const { user } = await createUserWithEmailAndPassword(auth, email, password);
   await updateProfile(user, { displayName: name });
   await ensureProfile(user, name);
-  await signOut(auth);
+  return user;
 }
 export async function ensureProfile(user, name = user.displayName) {
   const ref = doc(db, 'profiles', user.uid);
@@ -159,3 +160,6 @@ export async function loadUserSettings(uid, fallback) {
 export const saveUserSettings = (uid, settings) =>
   cloudWait(setDoc(doc(db, 'settings', uid), validateSettings(settings)));
 export const saveProfilePicture = (uid, photo) => updateDoc(doc(db, 'profiles', uid), { photo });
+
+export const removeProfilePicture = (uid) =>
+  updateDoc(doc(db, 'profiles', uid), { photo: deleteField() });

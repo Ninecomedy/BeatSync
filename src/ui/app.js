@@ -114,14 +114,13 @@ function authScreen(register = false) {
           if (data.get('password') !== data.get('confirm'))
             throw new Error('รหัสผ่านทั้งสองช่องไม่ตรงกัน');
           registering = true;
-          await api.register(
+          const registeredUser = await api.register(
             data.get('name').trim(),
             data.get('email').trim(),
             data.get('password'),
           );
-          user = profile = null;
-          navigate('login');
-          notify('สมัครสำเร็จ กรุณาเข้าสู่ระบบ');
+          registering = false;
+          await handleAuthUser(registeredUser);
         } else {
           notify('');
           await api.login(data.get('email').trim(), data.get('password'));
@@ -572,10 +571,27 @@ function openComments(score) {
 }
 function profileScreen() {
   shell(
-    `<main class="profile"><h1>${icon('b1a56', 'PROFILE')}</h1><div class="profile-layout"><div class="profile-avatar">${profile.photo ? `<img src="${esc(profile.photo)}" alt="Profile picture" width="128" height="128" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : esc(profile.name.slice(0, 1))}</div><section><h2>${esc(profile.name)}</h2><label>Change profile picture<input id="profile-photo" type="file" accept="image/png,image/jpeg,image/webp"></label><p id="photo-status" role="status">128px private thumbnail · up to 5 MB source</p><p>Feel the Beat · Sync Your World</p><div class="glass profile-stat">${icon('7fff4', '')}<div><strong id="best-score">—</strong><p>Highest Score</p></div></div><p class="hint">All songs · Highest completed score</p><button data-page="songs" class="outline">Start Game</button></section></div></main>`,
+    `<main class="profile"><h1>${icon('b1a56', 'PROFILE')}</h1><div class="profile-layout"><div class="profile-avatar">${profile.photo ? `<img src="${esc(profile.photo)}" alt="Profile picture" width="128" height="128" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : esc(profile.name.slice(0, 1))}</div><section><h2>${esc(profile.name)}</h2><label>Change profile picture<input id="profile-photo" type="file" accept="image/png,image/jpeg,image/webp"></label><button id="remove-photo" class="outline" ${profile.photo ? '' : 'hidden'}>Remove picture</button><p id="photo-status" role="status">128px private thumbnail · up to 5 MB source</p><p>Feel the Beat · Sync Your World</p><div class="glass profile-stat">${icon('7fff4', '')}<div><strong id="best-score">—</strong><p>Highest Score</p></div></div><p class="hint">All songs · Highest completed score</p><button data-page="songs" class="outline">Song Selection</button></section></div></main>`,
   );
   const photoInput = root.querySelector('#profile-photo');
+  const removePhoto = root.querySelector('#remove-photo');
+  removePhoto.onclick = () =>
+    action(removePhoto, async () => {
+      const uid = user.uid;
+      photoInput.disabled = true;
+      try {
+        await api.removeProfilePicture(uid);
+        if (user?.uid !== uid) return;
+        delete profile.photo;
+        if (page === 'profile') render();
+        notify('Profile picture removed');
+      } finally {
+        photoInput.disabled = false;
+      }
+    });
   photoInput.onchange = async () => {
+    if (!photoInput.files.length) return;
+    removePhoto.disabled = true;
     const uid = user.uid;
     photoInput.disabled = true;
     const status = root.querySelector('#photo-status');
@@ -590,6 +606,7 @@ function profileScreen() {
       status.textContent = error.message;
     } finally {
       photoInput.disabled = false;
+      removePhoto.disabled = false;
     }
   };
   subscriptions.push(
@@ -639,36 +656,37 @@ function render() {
     })[page] || songSelectionScreen
   )();
 }
+let authVersion = 0;
+async function handleAuthUser(nextUser) {
+  if (registering) return;
+  const version = ++authVersion;
+  clear();
+  user = nextUser;
+  setSettingsUser(user?.uid || null);
+  profile = null;
+  if (user) {
+    try {
+      const uid = user.uid;
+      profile = await api.ensureProfile(user);
+      if (version !== authVersion) return;
+      try {
+        const savedSettings = await api.loadUserSettings(uid, loadSettings());
+        if (version !== authVersion) return;
+        saveSettings(savedSettings);
+      } catch {
+        if (version === authVersion)
+          notify('Using settings saved on this device; cloud sync unavailable');
+      }
+    } catch (error) {
+      fail(error);
+    }
+    if (version !== authVersion) return;
+    if (['login', 'register', 'start', ''].includes(location.hash.slice(1)))
+      location.hash = 'songs';
+  }
+  render();
+}
 export async function mount() {
   window.addEventListener('hashchange', render);
-  let authVersion = 0;
-  api.observeAuth(async (nextUser) => {
-    if (registering) return;
-    const version = ++authVersion;
-    clear();
-    user = nextUser;
-    setSettingsUser(user?.uid || null);
-    profile = null;
-    if (user) {
-      try {
-        const uid = user.uid;
-        profile = await api.ensureProfile(user);
-        if (version !== authVersion) return;
-        try {
-          const savedSettings = await api.loadUserSettings(uid, loadSettings());
-          if (version !== authVersion) return;
-          saveSettings(savedSettings);
-        } catch {
-          if (version === authVersion)
-            notify('Using settings saved on this device; cloud sync unavailable');
-        }
-      } catch (error) {
-        fail(error);
-      }
-      if (version !== authVersion) return;
-      if (['login', 'register', 'start', ''].includes(location.hash.slice(1)))
-        location.hash = 'songs';
-    }
-    render();
-  });
+  api.observeAuth(handleAuthUser);
 }
