@@ -63,6 +63,7 @@ async function action(button, task) {
 }
 function clear() {
   generation++;
+  document.querySelector('#settings-dialog')?.close();
   stopGame?.();
   stopGame = null;
   subscriptions.forEach((fn) => fn());
@@ -70,14 +71,17 @@ function clear() {
 }
 function shell(content, className = '') {
   root.className = className;
-  root.innerHTML = `<header><a class="mini-logo" href="#songs" aria-label="BeatSync home"><img src="${logo}" alt="BeatSync"></a>${user && profile ? `<nav aria-label="Main navigation"><button data-page="songs">Songs</button><button data-page="leaderboard">Leaderboard</button><button data-page="profile">${icon('b1a56', 'Profile')}</button><button id="logout">Log out</button>${['start', 'songs'].includes(page) ? '<button data-page="settings" class="settings-gear" aria-label="Settings"><img src="/assets/b8500.png" alt=""></button>' : ''}</nav>` : ''}</header>${content}`;
+  root.innerHTML = `<header><a class="mini-logo" href="#songs" aria-label="BeatSync home"><img src="${logo}" alt="BeatSync"></a><nav aria-label="Main navigation">${user && profile ? `<button data-page="songs">Songs</button><button data-page="profile">${icon('b1a56', 'Profile')}</button><button id="logout">Log out</button>` : ''}<button data-page="settings" class="settings-gear" aria-label="Settings"><img src="/assets/b8500.png" alt=""></button></nav></header>${content}`;
   root.querySelectorAll('[data-page]').forEach((b) => (b.onclick = () => navigate(b.dataset.page)));
   root
     .querySelector('#logout')
     ?.addEventListener('click', (event) => action(event.currentTarget, api.logout));
 }
 function navigate(next) {
-  if (next === 'settings') settingsBack = 'songs';
+  if (next === 'settings') {
+    openSettings();
+    return;
+  }
   if (next === 'start') next = 'songs';
   location.hash = next;
   if (page === next) render();
@@ -89,7 +93,7 @@ function authScreen(register = false) {
     <label class="field"><span>Email</span><input name="email" aria-label="Email" placeholder="Email" type="email" autocomplete="email" required maxlength="254"></label>
     <label class="field password"><span>Password</span><input name="password" aria-label="Password" placeholder="Password" type="password" minlength="6" required autocomplete="${register ? 'new-password' : 'current-password'}"><button type="button" id="show-password" aria-label="Show password">◉</button></label>
     ${register ? '<label class="field"><span>Confirm Password</span><input name="confirm" aria-label="Confirm Password" placeholder="Confirm Password" type="password" required autocomplete="new-password"></label>' : ''}
-    <button class="primary wide" type="submit">${register ? 'Create Account' : 'Login'}</button><p id="form-error" role="alert"></p></form><p class="auth-switch">${register ? 'Already have an account? <a href="#login">Login</a>' : 'Don’t have an account? <a href="#register">Sign Up</a>'}</p><p class="hint">เข้าสู่ระบบด้วยอีเมลและรหัสผ่าน</p></section></main>`,
+    <button class="primary wide" type="submit">${register ? 'Create Account' : 'Login'}</button><p id="form-error" role="alert"></p></form><p class="auth-switch">${register ? 'Already have an account? <a href="#login">Login</a>' : 'Don’t have an account? <a href="#register">Sign Up</a>'}</p></section></main>`,
     register ? 'register-page' : 'login-page',
   );
   const form = root.querySelector('form');
@@ -132,9 +136,25 @@ function authScreen(register = false) {
     });
   };
 }
+function openSettings() {
+  if (document.querySelector('#settings-dialog')) return;
+  stopGame?.pause?.();
+  const dialog = document.createElement('dialog');
+  dialog.id = 'settings-dialog';
+  dialog.className = 'glass settings-dialog';
+  dialog.setAttribute('aria-label', 'Settings');
+  dialog.innerHTML = settingsMarkup(page);
+  document.body.append(dialog);
+  const uid = user?.uid;
+  bindSettings(dialog, uid ? (settings) => api.saveUserSettings(uid, settings) : async () => {});
+  dialog.querySelector('[aria-label="Back from Settings"]').onclick = () => dialog.close();
+  dialog.addEventListener('close', () => dialog.remove(), { once: true });
+  dialog.showModal();
+}
 function settingsScreen() {
-  shell(settingsMarkup(settingsBack));
-  bindSettings(root, (settings) => api.saveUserSettings(user.uid, settings));
+  shell(settingsMarkup(user ? settingsBack : 'login'));
+  const uid = user?.uid;
+  bindSettings(root, uid ? (settings) => api.saveUserSettings(uid, settings) : async () => {});
 }
 function songSelectionScreen() {
   const selectionToken = generation;
@@ -163,7 +183,7 @@ function songSelectionScreen() {
       .map((song) => `<option value="${esc(song.id)}">${esc(song.title)}</option>`)
       .join(
         '',
-      )}</select><div class="song-row"><div class="song-thumbnail" aria-hidden="true">LOCAL<br>MP3</div><div class="song-info"><h2>${esc(songInfo().title)}</h2><p>${esc(songInfo().artist)}</p></div><button id="play-local" class="song-action" aria-label="${esc(songInfo().playLabel)}" disabled>▶</button></div><p>Full song · คะแนนเฉพาะรอบนี้</p><label for="difficulty">Difficulty</label><select id="difficulty">${Object.entries(
+      )}</select><div class="song-row"><div class="song-thumbnail" aria-hidden="true">LOCAL<br>MP3</div><div class="song-info"><h2>${esc(songInfo().title)}</h2><p>${esc(songInfo().artist)}</p></div><button id="play-local" class="song-action" aria-label="${esc(songInfo().playLabel)}" disabled>▶</button></div><label for="difficulty">Difficulty</label><select id="difficulty">${Object.entries(
       localCharts(),
     )
       .map(([key, chart]) => `<option value="${key}">${esc(chart.label)}</option>`)
@@ -254,9 +274,8 @@ function songSelectionScreen() {
     play.disabled = true;
     const selected = localCharts()[difficulty];
     root.querySelector('#chart-info').textContent = selected.detail;
-    root.querySelector('#required-audio').textContent =
-      'Required audio: ' + selected.audioFilename + ' (' + songInfo().audioFolder + ')';
-    status.textContent = 'เลือกไฟล์เสียงที่ตรงกับระดับนี้';
+    root.querySelector('#required-audio').textContent = localSongId + '.mp3';
+    status.textContent = '';
     try {
       const response = await fetch(chartUrl(difficulty, localSongId), { cache: 'no-cache' });
       if (!response.ok) throw new Error('โหลด Beatmap ไม่สำเร็จ');
@@ -340,6 +359,7 @@ async function gameScreen(local = false) {
     const cleanup = await playGame(
       map,
       {
+        isSettingsOpen: () => !!document.querySelector('#settings-dialog[open]'),
         canvas: root.querySelector('canvas'),
         score: root.querySelector('#score'),
         combo: root.querySelector('#combo'),
@@ -421,7 +441,7 @@ function leaderboardScreen() {
           ? rows
               .map(
                 (row, i) =>
-                  `<tr data-score-id="${esc(row.id)}"><td>${i + 1}</td><td><span class="avatar">${esc(row.playerName.slice(0, 1))}</span><span>${esc(row.playerName)}</span></td><td>${row.score.toLocaleString()}</td><td class="reactions"><button data-kind="like" aria-label="Like ${esc(row.playerName)}" aria-pressed="false">Like <span>0</span></button><button data-kind="love" aria-label="Love ${esc(row.playerName)}" aria-pressed="false">♥ <span>0</span></button><button data-comments aria-label="Comment on ${esc(row.playerName)} score">Comment</button></td></tr>`,
+                  `<tr data-score-id="${esc(row.id)}"><td>${row.rank}</td><td><span class="avatar">${esc(row.playerName.slice(0, 1))}</span><span>${esc(row.playerName)}</span></td><td>${row.score.toLocaleString()}</td><td class="reactions"><button data-kind="like" aria-label="Like ${esc(row.playerName)}" aria-pressed="false">Like <span>0</span></button><button data-kind="love" aria-label="Love ${esc(row.playerName)}" aria-pressed="false">♥ <span>0</span></button><button data-comments aria-label="Comment on ${esc(row.playerName)} score">Comment</button></td></tr>`,
               )
               .join('')
           : '<tr><td colspan="4">ยังไม่มีคะแนน เล่นเพลงแรกเพื่อขึ้นอันดับ!</td></tr>';
@@ -512,7 +532,7 @@ function leaderboardScreen() {
 function openComments(score) {
   const dialog = document.createElement('dialog');
   dialog.className = 'glass comments-dialog';
-  dialog.innerHTML = `<button class="outline close-comments">Close comments</button><h2>Comments · ${esc(score.playerName)}</h2><div class="comment-list" role="log"></div><form><label>Comment<input aria-label="Comment" maxlength="280" required></label><button type="submit" class="primary">Post comment</button><p role="status"></p></form>`;
+  dialog.innerHTML = `<div class="comments-header"><h2>Comments · ${esc(score.playerName)}</h2><button class="outline close-comments">Close comments</button></div><div class="comment-list" role="log"></div><form><label>Comment<input aria-label="Comment" maxlength="280" required></label><button type="submit" class="primary">Post comment</button><p role="status"></p></form>`;
   root.append(dialog);
   let editing = null;
   const input = dialog.querySelector('input'),
@@ -569,31 +589,55 @@ function openComments(score) {
   };
   dialog.showModal();
 }
+function scoreDescription(row) {
+  const song = row && LOCAL_SONGS[row.songId];
+  return {
+    title: row?.songId === 'neon-pulse-v1' ? 'Neon Pulse' : song?.title || 'Unknown song',
+    difficulty:
+      row?.songId === 'neon-pulse-v1' && !row.difficulty
+        ? 'Normal'
+        : song?.charts[row?.difficulty]?.label ||
+          (row?.difficulty === 'normal' ? 'Normal' : row?.difficulty || 'Unspecified difficulty'),
+  };
+}
 function profileScreen() {
   shell(
-    `<main class="profile"><h1>${icon('b1a56', 'PROFILE')}</h1><div class="profile-layout"><div class="profile-avatar">${profile.photo ? `<img src="${esc(profile.photo)}" alt="Profile picture" width="128" height="128" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : esc(profile.name.slice(0, 1))}</div><section><h2>${esc(profile.name)}</h2><p>Feel the Beat · Sync Your World</p><div class="glass profile-stat">${icon('7fff4', '')}<div><strong id="best-score">—</strong><p>Highest Score</p></div></div><p id="best-score-song" class="hint" aria-live="polite">Loading score details…</p><button data-page="songs" class="outline">Song Selection</button></section></div></main>`,
+    `<main class="profile"><h1>${icon('b1a56', 'PROFILE')}</h1><div class="profile-layout"><div class="profile-avatar">${profile.photo ? `<img src="${esc(profile.photo)}" alt="Profile picture" width="128" height="128" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : esc(profile.name.slice(0, 1))}</div><section><h2>${esc(profile.name)}</h2><p>Feel the Beat · Sync Your World</p><div class="profile-stats"><div class="glass profile-stat">${icon('7fff4', '')}<div><strong id="best-score">—</strong><p id="best-score-title">Highest Score</p><p id="best-score-song" class="hint" aria-live="polite">Loading…</p></div></div><div class="glass profile-stat">${icon('7fff4', '')}<div><strong id="best-placement">—</strong><p id="best-placement-title">Best Placement</p><p id="best-placement-song" class="hint" aria-live="polite">Loading…</p></div></div></div><button data-page="songs" class="outline">Song Selection</button></section></div></main>`,
   );
   subscriptions.push(
     api.watchBest(
       user.uid,
       (rows) => {
-        const best = rows[0];
+        const best = rows[0],
+          details = scoreDescription(best);
         root.querySelector('#best-score').textContent = (best?.score ?? 0).toLocaleString();
-        const song = best && LOCAL_SONGS[best.songId];
-        const title =
-          best?.songId === 'neon-pulse-v1' ? 'Neon Pulse' : song?.title || 'Unknown song';
-        const label =
-          best?.songId === 'neon-pulse-v1' && !best.difficulty
-            ? 'Normal'
-            : song?.charts[best?.difficulty]?.label ||
-              (best?.difficulty === 'normal'
-                ? 'Normal'
-                : best?.difficulty || 'Unspecified difficulty');
+        root.querySelector('#best-score-title').textContent = best
+          ? 'Highest Score · ' + details.title
+          : 'Highest Score';
         root.querySelector('#best-score-song').textContent = best
-          ? title + ' · ' + label
+          ? details.difficulty
           : 'No completed scores yet';
       },
       fail,
+    ),
+  );
+  subscriptions.push(
+    api.watchPlacement(
+      user.uid,
+      (best) => {
+        const details = scoreDescription(best);
+        root.querySelector('#best-placement').textContent = best ? '#' + best.rank : '—';
+        root.querySelector('#best-placement-title').textContent = best
+          ? 'Best Placement · ' + details.title
+          : 'Best Placement';
+        root.querySelector('#best-placement-song').textContent = best
+          ? details.difficulty
+          : 'No completed scores yet';
+      },
+      (error) => {
+        root.querySelector('#best-placement-song').textContent = 'Placement unavailable';
+        fail(error);
+      },
     ),
   );
 }
@@ -616,6 +660,10 @@ function recoverProfile() {
 function render() {
   clear();
   page = location.hash.slice(1) || (user ? 'songs' : 'login');
+  if (page === 'settings') {
+    settingsScreen();
+    return;
+  }
   if (!user) {
     authScreen(page === 'register');
     return;

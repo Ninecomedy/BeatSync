@@ -1,3 +1,4 @@
+import { rankRows, bestPerScope, bestPlacement } from './ranking.js';
 import { validateSettings, cloudWait } from '../settings/store.js';
 import {
   createUserWithEmailAndPassword,
@@ -10,6 +11,7 @@ import {
   collection,
   doc,
   getDoc,
+  getCountFromServer,
   updateDoc,
   deleteDoc,
   deleteField,
@@ -52,7 +54,7 @@ export const watchScores = (cb, error, songId = 'neon-pulse-v1', difficulty = 'n
       orderBy('score', 'desc'),
       limit(20),
     ),
-    cb,
+    (rows) => cb(rankRows(rows)),
     error,
   );
 export const watchBest = (uid, cb, error, songId, difficulty) =>
@@ -163,3 +165,41 @@ export const saveProfilePicture = (uid, photo) => updateDoc(doc(db, 'profiles', 
 
 export const removeProfilePicture = (uid) =>
   updateDoc(doc(db, 'profiles', uid), { photo: deleteField() });
+
+export const watchPlacement = (uid, callback, error) => {
+  let revision = 0;
+  let active = true;
+  const unsubscribe = listen(
+    query(collection(db, 'scores'), where('uid', '==', uid)),
+    async (rows) => {
+      const current = ++revision;
+      try {
+        const placements = await Promise.all(
+          bestPerScope(rows).map(async (row) => {
+            const higher = await getCountFromServer(
+              query(
+                collection(db, 'scores'),
+                where('songId', '==', row.songId),
+                ...(row.songId === 'neon-pulse-v1'
+                  ? []
+                  : [where('difficulty', '==', row.difficulty)]),
+                where('score', '>', row.score),
+                orderBy('score', 'desc'),
+              ),
+            );
+            return { ...row, rank: higher.data().count + 1 };
+          }),
+        );
+        if (active && current === revision) callback(bestPlacement(placements));
+      } catch (e) {
+        if (active && current === revision) error(e);
+      }
+    },
+    error,
+  );
+  return () => {
+    active = false;
+    revision++;
+    unsubscribe();
+  };
+};

@@ -47,7 +47,7 @@ test('comments, highest score labels and responsive six-card layout', async ({ p
     });
   });
   await page.getByRole('button', { name: 'Profile', exact: true }).click();
-  await expect(page.locator('#best-score-song')).toHaveText('Neon Pulse · Normal');
+  await expect(page.locator('#best-score-song')).toHaveText('Normal');
   await page.evaluate(async () => {
     const api = await import('/src/firebase/service.js'),
       { auth } = await import('/src/firebase/client.js');
@@ -61,7 +61,7 @@ test('comments, highest score labels and responsive six-card layout', async ({ p
     );
   });
   await expect(page.locator('#best-score')).toHaveText('2,000');
-  await expect(page.locator('#best-score-song')).toHaveText('Yuusha · Med');
+  await expect(page.locator('#best-score-song')).toHaveText('Med');
   await page.getByRole('button', { name: 'Song Selection', exact: true }).click();
   await page.getByRole('button', { name: 'Yuusha leaderboard', exact: true }).click();
   await expect(page.locator('.song-panel h2')).toHaveText('Yuusha');

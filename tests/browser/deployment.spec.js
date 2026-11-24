@@ -7,6 +7,7 @@ test('production path: hosted Play, saved score, two-account comments/reactions/
   browser,
   baseURL,
 }) => {
+  test.skip(!!process.env.BEATSYNC_LIVE_URL, 'Production verification must be read-only');
   test.setTimeout(120000);
   if (!process.env.BEATSYNC_LIVE_URL) {
     const values = (v) =>

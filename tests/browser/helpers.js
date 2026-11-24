@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { expect } from '@playwright/test';
 export async function registerLogin(page, prefix = 'Player') {
+  if (process.env.BEATSYNC_LIVE_URL) throw new Error('Account/write tests must use Emulator');
   const email = `${prefix.toLowerCase()}-${Date.now()}@example.com`,
     password = `BeatSync-${randomUUID()}!`;
   await page.goto('/#register');

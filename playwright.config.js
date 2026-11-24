@@ -1,6 +1,8 @@
 import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: 'tests/browser',
+  // Production verification is read-only; all write tests run against Emulator.
+  testMatch: process.env.BEATSYNC_LIVE_URL ? '**/live-readonly.spec.js' : '**/*.spec.js',
   timeout: 90000,
   expect: { timeout: process.env.BEATSYNC_LIVE_URL ? 20000 : 5000 },
   workers: 1,

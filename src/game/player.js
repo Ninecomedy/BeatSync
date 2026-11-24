@@ -33,6 +33,7 @@ export async function playGame(map, elements, onFinish, onError, audioFactory = 
     elements.keys[lane].classList.add('pressed');
   };
   const keydown = (event) => {
+    if (event.target.closest?.('#settings-dialog')) return;
     const lane = KEYS.indexOf(event.code);
     if (lane < 0) return;
     event.preventDefault();
@@ -233,7 +234,7 @@ export async function playGame(map, elements, onFinish, onError, audioFactory = 
       ctx.fill();
       ctx.shadowBlur = 0;
     }
-    if (audio.finished ?? time >= map.duration) {
+    if (!paused && (audio.finished ?? time >= map.duration)) {
       engine.advance(map.duration);
       stop();
       onFinish(engine.result());
@@ -245,7 +246,9 @@ export async function playGame(map, elements, onFinish, onError, audioFactory = 
   window.addEventListener('keyup', keyup);
   document.addEventListener('visibilitychange', hidden);
   pause.addEventListener('click', pauseClick);
+  stop.pause = freeze;
   audio.start();
+  if (elements.isSettingsOpen?.()) freeze();
   draw();
   return stop;
 }
