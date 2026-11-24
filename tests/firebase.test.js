@@ -241,3 +241,41 @@ test('account leaderboard: song filter reads existing immutable scores', async (
   );
   await assertFails(updateDoc(ref, { score: 999999 }));
 });
+
+test('persistence: all active song difficulties accept valid scores and reject forged data', async () => {
+  const catalog = JSON.parse(readFileSync('scripts/song-metadata.json', 'utf8'));
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    for (const [id, song] of Object.entries(catalog))
+      await setDoc(doc(ctx.firestore(), 'songs', id), song);
+  });
+  for (const [songId, song] of Object.entries(catalog)) {
+    for (const [difficulty, count] of Object.entries(song.counts || { normal: 48 })) {
+      const data = { ...score(), songId, difficulty, miss: count - 2 };
+      const ref = doc(a, 'scores', 'persistence-' + songId + '-' + difficulty);
+      await assertSucceeds(setDoc(ref, data));
+      await assertSucceeds(
+        getDocs(
+          query(
+            collection(b, 'scores'),
+            where('songId', '==', songId),
+            where('difficulty', '==', difficulty),
+            orderBy('score', 'desc'),
+          ),
+        ),
+      );
+      await assertFails(
+        setDoc(doc(a, 'scores', 'bad-' + songId + '-' + difficulty), { ...data, miss: count }),
+      );
+      await assertFails(setDoc(doc(b, 'scores', 'stolen-' + songId + '-' + difficulty), data));
+      await assertFails(updateDoc(ref, { score: 100000 }));
+    }
+  }
+  await assertFails(
+    setDoc(doc(a, 'scores', 'unknown-difficulty'), {
+      ...score(),
+      songId: 'rabbit-hole',
+      difficulty: 'lunatic',
+    }),
+  );
+  await assertSucceeds(getDoc(doc(a, 'profiles', 'alice')));
+});

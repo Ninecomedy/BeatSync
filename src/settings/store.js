@@ -68,3 +68,17 @@ export function saveSettings(value) {
   return settings;
 }
 export const travelSeconds = (settings) => 1.8 / settings.noteSpeed;
+
+// Bound cloud waits so the local fallback remains usable offline.
+export const cloudWait = (operation, ms = 5000) => {
+  let timer;
+  return Promise.race([
+    operation,
+    new Promise((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error('Cloud unavailable; settings saved on this device')),
+        ms,
+      );
+    }),
+  ]).finally(() => clearTimeout(timer));
+};

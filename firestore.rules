@@ -19,13 +19,18 @@ service cloud.firestore {
         && (!('photo' in d) || (d.photo is string && d.photo.size() <= 32768
           && d.photo.matches('data:image/webp;base64,[A-Za-z0-9+/=]+')));
     }
+    function chartCount(d) {
+      return d.songId == 'neon-pulse-v1'
+        ? ((!('difficulty' in d) || d.difficulty == 'normal') ? 48 : -1)
+        : get(/databases/$(database)/documents/songs/$(d.songId)).data.counts[d.difficulty];
+    }
     function validScore(d) {
       return d.keys().hasAll(['uid','playerName','songId','score','maxCombo','perfect','good','miss','createdAt'])
-        && d.keys().hasOnly(['uid','playerName','songId','score','maxCombo','perfect','good','miss','createdAt'])
-        && owner(d.uid) && named(d) && d.songId == 'neon-pulse-v1'
+        && d.keys().hasOnly(['uid','playerName','songId','score','maxCombo','perfect','good','miss','createdAt','difficulty'])
+        && owner(d.uid) && named(d)
         && d.perfect is int && d.good is int && d.miss is int
         && d.perfect >= 0 && d.good >= 0 && d.miss >= 0
-        && d.perfect + d.good + d.miss == 48
+        && d.perfect + d.good + d.miss == chartCount(d)
         && d.score is int && d.score == d.perfect * 1000 + d.good * 500
         && d.maxCombo is int && d.maxCombo >= 0 && d.maxCombo <= d.perfect + d.good
         && d.createdAt == request.time;

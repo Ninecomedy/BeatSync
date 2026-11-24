@@ -1,4 +1,4 @@
-import { validateSettings } from '../settings/store.js';
+import { validateSettings, cloudWait } from '../settings/store.js';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -42,20 +42,28 @@ export async function ensureProfile(user, name = user.displayName) {
 }
 const listen = (q, callback, error) =>
   onSnapshot(q, (snap) => callback(snap.docs.map((d) => ({ ...d.data(), id: d.id }))), error);
-export const watchScores = (cb, error, songId = 'neon-pulse-v1') =>
+export const watchScores = (cb, error, songId = 'neon-pulse-v1', difficulty = 'normal') =>
   listen(
     query(
       collection(db, 'scores'),
       where('songId', '==', songId),
+      ...(songId === 'neon-pulse-v1' ? [] : [where('difficulty', '==', difficulty)]),
       orderBy('score', 'desc'),
       limit(20),
     ),
     cb,
     error,
   );
-export const watchBest = (uid, cb, error) =>
+export const watchBest = (uid, cb, error, songId, difficulty) =>
   listen(
-    query(collection(db, 'scores'), where('uid', '==', uid), orderBy('score', 'desc'), limit(1)),
+    query(
+      collection(db, 'scores'),
+      where('uid', '==', uid),
+      ...(songId ? [where('songId', '==', songId)] : []),
+      ...(difficulty && songId !== 'neon-pulse-v1' ? [where('difficulty', '==', difficulty)] : []),
+      orderBy('score', 'desc'),
+      limit(1),
+    ),
     cb,
     error,
   );
@@ -68,7 +76,14 @@ export const watchChat = (cb, error) =>
 export const watchReactions = (scoreId, cb, error) =>
   listen(collection(db, 'scores', scoreId, 'reactions'), cb, error);
 export const newScoreId = () => doc(collection(db, 'scores')).id;
-export async function saveScore(id, user, name, result) {
+export async function saveScore(
+  id,
+  user,
+  name,
+  result,
+  songId = 'neon-pulse-v1',
+  difficulty = 'normal',
+) {
   // Stable run ID makes retry after an uncertain acknowledgement idempotent.
   const ref = doc(db, 'scores', id);
   await runTransaction(db, async (tx) => {
@@ -76,7 +91,8 @@ export async function saveScore(id, user, name, result) {
     tx.set(ref, {
       uid: user.uid,
       playerName: name,
-      songId: 'neon-pulse-v1',
+      songId,
+      difficulty,
       ...result,
       createdAt: serverTimestamp(),
     });
@@ -128,10 +144,18 @@ export const editComment = (scoreId, id, text) =>
   });
 export const removeComment = (scoreId, id) => deleteDoc(doc(db, 'scores', scoreId, 'comments', id));
 
-export async function loadUserSettings(uid) {
-  const snapshot = await getDoc(doc(db, 'settings', uid));
-  return snapshot.exists() ? validateSettings(snapshot.data()) : null;
+export async function loadUserSettings(uid, fallback) {
+  const ref = doc(db, 'settings', uid);
+  return cloudWait(
+    runTransaction(db, async (tx) => {
+      const snapshot = await tx.get(ref);
+      if (snapshot.exists()) return validateSettings(snapshot.data());
+      const settings = validateSettings(fallback);
+      tx.set(ref, settings); // First-login migration: transaction never overwrites an existing document.
+      return settings;
+    }),
+  );
 }
 export const saveUserSettings = (uid, settings) =>
-  setDoc(doc(db, 'settings', uid), validateSettings(settings));
+  cloudWait(setDoc(doc(db, 'settings', uid), validateSettings(settings)));
 export const saveProfilePicture = (uid, photo) => updateDoc(doc(db, 'profiles', uid), { photo });

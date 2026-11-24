@@ -1,4 +1,4 @@
-import { setSettingsUser, saveSettings } from '../settings/store.js';
+import { setSettingsUser, saveSettings, loadSettings } from '../settings/store.js';
 import { profileThumbnail } from './profile-picture.js';
 import { loadHostedSong } from '../game/hosted-audio.js';
 import { emulatorMode } from '../firebase/client.js';
@@ -8,6 +8,7 @@ import { loadLocalSong, createLocalAudio } from '../game/local-audio.js';
 import { settingsMarkup, bindSettings } from './settings.js';
 let settingsBack = 'songs';
 let leaderboardSong = 'neon';
+let leaderboardDifficulty = 'hard';
 import { LOCAL_SONGS, getLocalSong, chartUrl } from '../game/song-catalog.js';
 let difficulty = 'hard';
 let localSongId = 'monitoring';
@@ -201,6 +202,10 @@ function songSelectionScreen() {
   root.querySelectorAll('[data-song-board]').forEach((button) => {
     button.onclick = () => {
       leaderboardSong = button.dataset.songBoard;
+      leaderboardDifficulty =
+        localDifficulties[leaderboardSong] ||
+        LOCAL_SONGS[leaderboardSong]?.defaultDifficulty ||
+        'normal';
       navigate('leaderboard');
     };
   });
@@ -330,6 +335,8 @@ async function gameScreen(local = false) {
     const hostedAudio = metadata ? await loadHostedSong(metadata, map) : undefined;
     if (token !== generation) return;
     const runId = api.newScoreId();
+    const runSong = local ? localSongId : 'neon-pulse-v1';
+    const runDifficulty = local ? difficulty : 'normal';
     const runUser = user,
       runName = profile.name;
     const cleanup = await playGame(
@@ -343,10 +350,7 @@ async function gameScreen(local = false) {
         progress: root.querySelector('progress'),
         keys: [...root.querySelectorAll('.keys button')],
       },
-      (result) =>
-        local
-          ? localResultScreen(result, localCharts()[difficulty].label, map.title)
-          : resultScreen(runId, runUser, runName, result),
+      (result) => resultScreen(runId, runUser, runName, result, runSong, runDifficulty),
       fail,
       local
         ? (chart, settings) => createLocalAudio({ ...localSong, map: chart }, settings)
@@ -359,14 +363,9 @@ async function gameScreen(local = false) {
     navigate('songs');
   }
 }
-function localResultScreen(result, playedDifficulty, playedTitle) {
-  clear();
-  shell(
-    `<main class="result glass"><p class="eyebrow">TRACK COMPLETE · ${esc(playedDifficulty)} · FULL SONG</p><h1>${esc(playedTitle)}</h1><strong class="result-score">${result.score.toLocaleString()}</strong><p>Max Combo ${result.maxCombo} · Perfect ${result.perfect} · Good ${result.good} · Miss ${result.miss}</p><p role="status">คะแนนทดลองเฉพาะรอบนี้ ไม่บันทึกใน Leaderboard หรือ Profile</p><button data-page="game-local" class="primary">Play again</button><button data-page="songs" class="outline">Choose song</button></main>`,
-  );
-}
-function resultScreen(runId, runUser, name, result) {
-  leaderboardSong = 'neon';
+function resultScreen(runId, runUser, name, result, songId, playedDifficulty) {
+  leaderboardSong = songId === 'neon-pulse-v1' ? 'neon' : songId;
+  leaderboardDifficulty = playedDifficulty;
   clear();
   shell(
     `<main class="result glass"><p class="eyebrow">TRACK COMPLETE</p><h1>Nice rhythm, ${esc(name)}!</h1><strong class="result-score">${result.score.toLocaleString()}</strong><p>Max Combo ${result.maxCombo} · Perfect ${result.perfect} · Good ${result.good} · Miss ${result.miss}</p><p id="save-state" role="status">กำลังบันทึกคะแนน…</p><button id="retry" class="primary" hidden>Retry save</button><button data-page="leaderboard" class="outline" id="view-board" disabled>View Leaderboard</button><button data-page="songs" class="text-button">Back to Songs</button></main>`,
@@ -377,7 +376,7 @@ function resultScreen(runId, runUser, name, result) {
   async function save() {
     retry.hidden = true;
     try {
-      await api.saveScore(runId, runUser, name, result);
+      await api.saveScore(runId, runUser, name, result, songId, playedDifficulty);
       state.textContent = 'บันทึกคะแนนแล้ว';
       board.disabled = false;
     } catch (error) {
@@ -395,11 +394,20 @@ function leaderboardScreen() {
     `<main class="community"><div class="board-heading"><button data-page="songs" class="outline">← Back</button><h1>${icon('7fff4', 'LEADERBOARD')}</h1></div><div class="community-grid"><div><section class="glass board"><div class="table-scroll"><table><thead><tr><th>#</th><th>Player</th><th>Score</th><th>Like / Love</th></tr></thead><tbody id="scores"><tr><td colspan="4">กำลังโหลดคะแนน…</td></tr></tbody></table></div><p class="hint">Top 20 · ${esc(boardTitle)}</p></section><section class="glass chat"><h2>LIVE CHAT</h2><div id="messages" role="log" aria-live="polite"><p class="hint">กำลังเชื่อมต่อ…</p></div><form id="chat-form"><input aria-label="Chat message" placeholder="Type a message…" maxlength="280" required><button aria-label="Send message" type="submit">${icon('88826', '')}</button></form></section></div><aside class="song-panel"><div class="record-art"><img class="record" src="/assets/9e74f.png" alt=""><div class="demo-cover"><span>BEATSYNC ORIGINAL</span><strong>NEON<br>PULSE</strong><span>120 BPM / VOL. 01</span></div></div><h2>Neon Pulse</h2><p>BeatSync · Original synthesized demo</p><div class="glass personal-best"><span>Your best</span><strong id="board-best">—</strong></div><button data-page="game" class="outline">Play again</button></aside></div></main>`,
   );
   if (boardSong) {
+    const picker = document.createElement('select');
+    picker.setAttribute('aria-label', 'Leaderboard difficulty');
+    for (const [key, chart] of Object.entries(boardSong.charts))
+      picker.add(new Option(chart.label, key));
+    picker.value = leaderboardDifficulty;
+    picker.onchange = () => {
+      leaderboardDifficulty = picker.value;
+      render();
+    };
+    root.querySelector('.board-heading').append(picker);
     const panel = root.querySelector('.song-panel');
     panel.querySelector('h2').textContent = boardTitle;
     panel.querySelector('p').textContent = boardSong.artist;
     panel.querySelector('.demo-cover').textContent = boardTitle;
-    panel.querySelector('.personal-best').hidden = true;
     panel.querySelector('button').textContent = 'Choose song';
     panel.querySelector('button').onclick = () => navigate('songs');
   }
@@ -462,6 +470,7 @@ function leaderboardScreen() {
         fail(error);
       },
       boardSong?.id || 'neon-pulse-v1',
+      leaderboardDifficulty,
     ),
   );
   subscriptions.push(
@@ -470,6 +479,8 @@ function leaderboardScreen() {
       (rows) =>
         (root.querySelector('#board-best').textContent = (rows[0]?.score ?? 0).toLocaleString()),
       fail,
+      boardSong?.id || 'neon-pulse-v1',
+      leaderboardDifficulty,
     ),
   );
   const messages = root.querySelector('#messages');
@@ -561,7 +572,7 @@ function openComments(score) {
 }
 function profileScreen() {
   shell(
-    `<main class="profile"><h1>${icon('b1a56', 'PROFILE')}</h1><div class="profile-layout"><div class="profile-avatar">${profile.photo ? `<img src="${esc(profile.photo)}" alt="Profile picture" width="128" height="128" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : esc(profile.name.slice(0, 1))}</div><section><h2>${esc(profile.name)}</h2><label>Change profile picture<input id="profile-photo" type="file" accept="image/png,image/jpeg,image/webp"></label><p id="photo-status" role="status">128px private thumbnail · up to 5 MB source</p><p>Feel the Beat · Sync Your World</p><div class="glass profile-stat">${icon('7fff4', '')}<div><strong id="best-score">—</strong><p>Highest Score</p></div></div><p class="hint">Neon Pulse · คะแนนสูงสุดจากรอบที่เล่นจบ</p><button data-page="songs" class="outline">Start Game</button></section></div></main>`,
+    `<main class="profile"><h1>${icon('b1a56', 'PROFILE')}</h1><div class="profile-layout"><div class="profile-avatar">${profile.photo ? `<img src="${esc(profile.photo)}" alt="Profile picture" width="128" height="128" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : esc(profile.name.slice(0, 1))}</div><section><h2>${esc(profile.name)}</h2><label>Change profile picture<input id="profile-photo" type="file" accept="image/png,image/jpeg,image/webp"></label><p id="photo-status" role="status">128px private thumbnail · up to 5 MB source</p><p>Feel the Beat · Sync Your World</p><div class="glass profile-stat">${icon('7fff4', '')}<div><strong id="best-score">—</strong><p>Highest Score</p></div></div><p class="hint">All songs · Highest completed score</p><button data-page="songs" class="outline">Start Game</button></section></div></main>`,
   );
   const photoInput = root.querySelector('#profile-photo');
   photoInput.onchange = async () => {
@@ -641,13 +652,16 @@ export async function mount() {
     if (user) {
       try {
         const uid = user.uid;
-        const [loadedProfile, savedSettings] = await Promise.all([
-          api.ensureProfile(user),
-          api.loadUserSettings(uid),
-        ]);
+        profile = await api.ensureProfile(user);
         if (version !== authVersion) return;
-        profile = loadedProfile;
-        if (savedSettings) saveSettings(savedSettings);
+        try {
+          const savedSettings = await api.loadUserSettings(uid, loadSettings());
+          if (version !== authVersion) return;
+          saveSettings(savedSettings);
+        } catch {
+          if (version === authVersion)
+            notify('Using settings saved on this device; cloud sync unavailable');
+        }
       } catch (error) {
         fail(error);
       }

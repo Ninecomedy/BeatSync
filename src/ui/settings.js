@@ -51,21 +51,23 @@ export function bindSettings(root, persist = async () => {}) {
   root.querySelector('#settings-form').onsubmit = async (event) => {
     event.preventDefault();
     try {
-      await persist(draft);
       draft = saveSettings(draft);
+      await persist(draft);
       status.textContent = 'Settings saved. Ready for your next game.';
     } catch (error) {
-      status.textContent = error.message;
+      status.textContent =
+        'Saved on this device. Cloud sync failed; retry Save Changes when online.';
     }
   };
   root.querySelector('#reset-settings').onclick = async () => {
     try {
-      await persist(DEFAULT_SETTINGS);
       draft = saveSettings(DEFAULT_SETTINGS);
       paint();
+      await persist(draft);
       status.textContent = 'Defaults restored and saved.';
     } catch (error) {
-      status.textContent = error.message;
+      status.textContent =
+        'Saved on this device. Cloud sync failed; retry Save Changes when online.';
     }
   };
   paint();
