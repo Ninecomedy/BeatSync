@@ -69,7 +69,9 @@ service cloud.firestore {
     }
     match /songs/{songId} { allow read: if signedIn(); }
     match /profiles/{uid} {
-      allow read: if owner(uid);
+      // Single-document avatar reads expose only the validated display-only profile schema.
+      // Documents containing any additional private fields remain owner-only; listing is denied.
+      allow get: if owner(uid) || (signedIn() && validProfile(resource.data));
       allow create: if owner(uid) && validProfile(request.resource.data) && request.resource.data.createdAt == request.time;
       allow update: if owner(uid) && validProfile(request.resource.data)
         && request.resource.data.createdAt == resource.data.createdAt;

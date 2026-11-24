@@ -48,7 +48,7 @@ after(async () => {
   await env?.cleanup();
 });
 test('owner profile creation, public game names only, deny escalation and invalid updates', async () => {
-  await assertFails(getDoc(doc(b, 'profiles', 'alice')));
+  await assertSucceeds(getDoc(doc(b, 'profiles', 'alice')));
   await assertSucceeds(getDoc(doc(a, 'profiles', 'alice')));
   for (const data of [
     { name: 'x', createdAt: serverTimestamp() },
@@ -181,7 +181,7 @@ test('song metadata is read-only for signed-in players; profiles and reactions s
   await assertFails(setDoc(doc(a, 'songs', 'evil'), { audioPath: 'https://evil.example' }));
   await assertSucceeds(updateDoc(doc(a, 'profiles', 'alice'), { name: 'Alice updated' }));
   await assertSucceeds(updateDoc(doc(a, 'profiles', 'alice'), { name: 'Alice' }));
-  await assertFails(getDoc(doc(b, 'profiles', 'alice')));
+  await assertSucceeds(getDoc(doc(b, 'profiles', 'alice')));
   const ref = doc(a, 'scores', 'rules-run', 'reactions', 'alice');
   await assertSucceeds(setDoc(ref, { like: true, love: false, updatedAt: serverTimestamp() }));
   await assertFails(deleteDoc(doc(b, 'scores', 'rules-run', 'reactions', 'alice')));
@@ -218,7 +218,7 @@ test('account picture: bounded private thumbnail preserves name and timestamps',
   await assertFails(
     updateDoc(doc(b, 'profiles', 'alice'), { photo: 'data:image/webp;base64,AAAA' }),
   );
-  await assertFails(getDoc(doc(b, 'profiles', 'alice')));
+  await assertSucceeds(getDoc(doc(b, 'profiles', 'alice')));
   for (const photo of [
     'https://example.com/photo',
     'data:image/svg+xml;base64,AAAA',
@@ -282,4 +282,28 @@ test('persistence: all active song difficulties accept valid scores and reject f
     }),
   );
   await assertSucceeds(getDoc(doc(a, 'profiles', 'alice')));
+});
+
+test('comment avatars: signed-in display profile gets only; no listing, private fields or guest access', async () => {
+  await assertSucceeds(getDoc(doc(b, 'profiles', 'alice')));
+  await assertFails(getDoc(doc(guest, 'profiles', 'alice')));
+  await assertFails(getDocs(collection(b, 'profiles')));
+  await assertFails(updateDoc(doc(b, 'profiles', 'alice'), { name: 'Hijack' }));
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'profiles', 'private-avatar-test'), {
+      name: 'Private',
+      createdAt: serverTimestamp(),
+      privateEmail: 'private@example.com',
+    });
+  });
+  await assertFails(getDoc(doc(b, 'profiles', 'private-avatar-test')));
+  await assertSucceeds(
+    getDoc(
+      doc(
+        env.authenticatedContext('private-avatar-test').firestore(),
+        'profiles',
+        'private-avatar-test',
+      ),
+    ),
+  );
 });

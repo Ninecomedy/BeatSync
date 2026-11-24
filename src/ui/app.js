@@ -1,3 +1,4 @@
+import { readCachedAudio, cacheAudio } from '../game/audio-cache.js';
 import { setSettingsUser, saveSettings, loadSettings } from '../settings/store.js';
 import { loadHostedSong } from '../game/hosted-audio.js';
 import { emulatorMode } from '../firebase/client.js';
@@ -8,7 +9,7 @@ import { settingsMarkup, bindSettings } from './settings.js';
 let settingsBack = 'songs';
 let leaderboardSong = 'neon';
 let leaderboardDifficulty = 'hard';
-import { LOCAL_SONGS, getLocalSong, chartUrl } from '../game/song-catalog.js';
+import { LOCAL_SONGS, getLocalSong, chartUrl, AUDIO_DOWNLOADS } from '../game/song-catalog.js';
 let difficulty = 'hard';
 let localSongId = 'monitoring';
 const localDifficulties = { monitoring: 'hard' };
@@ -189,7 +190,7 @@ function songSelectionScreen() {
       .map(([key, chart]) => `<option value="${key}">${esc(chart.label)}</option>`)
       .join(
         '',
-      )}</select><p class="chart-info" id="chart-info"></p><p id="required-audio" class="hint"></p><label for="local-file">เลือกไฟล์ MP3 / OGG จากเครื่อง</label><input id="local-file" type="file" accept=".mp3,.ogg,audio/mpeg,audio/ogg"><p id="local-status" role="status">ไฟล์เสียงจะอยู่ในเบราว์เซอร์ ไม่อัปโหลด</p></article></section><aside class="song-panel selected-song" aria-label="Selected song"><div class="record-art"><img class="record" src="/assets/9e74f.png" alt=""><div class="demo-cover"><span>BEATSYNC ORIGINAL</span><strong>NEON<br>PULSE</strong><span>120 BPM / VOL. 01</span></div></div><h2>Neon Pulse</h2><p>BeatSync</p></aside></div></main>`,
+      )}</select><p class="chart-info" id="chart-info"></p><p id="required-audio" class="hint"></p><div class="audio-actions"><a id="download-audio" class="outline" target="_blank" rel="noopener noreferrer">Download Audio</a><button id="load-audio" class="outline" type="button">Load Audio</button><button id="change-audio" class="text-button" type="button" hidden>Change Audio</button></div><input id="local-file" type="file" aria-label="Load MP3 or OGG audio" accept=".mp3,.ogg,audio/mpeg,audio/ogg" hidden><p id="local-status" role="status">ไฟล์เสียงจะอยู่ในเบราว์เซอร์ ไม่อัปโหลด</p></article></section><aside class="song-panel selected-song" aria-label="Selected song"><div class="record-art"><img class="record" src="/assets/9e74f.png" alt=""><div class="demo-cover"><span>BEATSYNC ORIGINAL</span><strong>NEON<br>PULSE</strong><span>120 BPM / VOL. 01</span></div></div><h2>Neon Pulse</h2><p>BeatSync</p></aside></div></main>`,
   );
   root.querySelector('.selected-song').append(root.querySelector('.local-song'));
   function showSelection() {
@@ -233,6 +234,17 @@ function songSelectionScreen() {
   const input = root.querySelector('#local-file');
   const play = root.querySelector('#play-local');
   const status = root.querySelector('#local-status');
+  const load = root.querySelector('#load-audio');
+  const change = root.querySelector('#change-audio');
+  load.onclick = change.onclick = () => {
+    input.value = '';
+    input.click();
+  };
+  const ready = (value) => {
+    play.disabled = !value;
+    load.hidden = value;
+    change.hidden = !value;
+  };
   const songChoice = root.querySelector('#local-song-choice');
   songChoice.value = localSongId;
   songChoice.onchange = () => {
@@ -270,23 +282,36 @@ function songSelectionScreen() {
   play.onclick = () => navigate('game-local');
   let request = 0;
   async function refreshChoice() {
-    const current = ++request;
-    play.disabled = true;
+    const current = ++request,
+      songId = localSongId;
+    ready(false);
     const selected = localCharts()[difficulty];
     root.querySelector('#chart-info').textContent = selected.detail;
-    root.querySelector('#required-audio').textContent = localSongId + '.mp3';
-    status.textContent = '';
+    root.querySelector('#required-audio').textContent = songId + '.mp3';
+    root.querySelector('#download-audio').href = AUDIO_DOWNLOADS[songId];
+    status.textContent = 'Checking saved audio…';
     try {
-      const response = await fetch(chartUrl(difficulty, localSongId), { cache: 'no-cache' });
+      const response = await fetch(chartUrl(difficulty, songId), { cache: 'no-cache' });
       if (!response.ok) throw new Error('โหลด Beatmap ไม่สำเร็จ');
       const chart = await response.json();
       if (current !== request || selectionToken !== generation) return;
-      if (localSong?.sha256 === chart.sha256) {
-        play.disabled = false;
-        status.textContent = 'พร้อมเล่น: ' + localSong.name;
+      if (localSong?.sha256 !== chart.sha256) {
+        const file = await readCachedAudio(songId);
+        if (current !== request || selectionToken !== generation) return;
+        if (!file) {
+          status.textContent = 'Download audio, then load the MP3/OGG file once.';
+          return;
+        }
+        const restored = await loadLocalSong(file, chart);
+        if (current !== request || selectionToken !== generation) return;
+        localSong = restored;
       }
-    } catch (error) {
-      if (current === request && selectionToken === generation) status.textContent = error.message;
+      ready(true);
+      status.textContent = 'Ready: ' + localSong.name;
+    } catch {
+      if (current === request && selectionToken === generation)
+        status.textContent =
+          'Saved audio unavailable. Load Audio to select a matching MP3/OGG file.';
     }
   }
   choice.onchange = () => {
@@ -299,20 +324,32 @@ function songSelectionScreen() {
   };
   refreshChoice();
   input.onchange = async () => {
-    const current = ++request;
-    localSong = null;
-    play.disabled = true;
-    status.textContent = 'กำลังตรวจไฟล์และเตรียมเสียง…';
+    const file = input.files[0];
+    if (!file) return;
+    const current = ++request,
+      songId = localSongId,
+      selectedDifficulty = difficulty;
+    ready(false);
+    status.textContent = 'Checking audio…';
     try {
-      const response = await fetch(chartUrl(difficulty, localSongId), { cache: 'no-cache' });
+      const response = await fetch(chartUrl(selectedDifficulty, songId), { cache: 'no-cache' });
       if (!response.ok) throw new Error('โหลด Beatmap ไม่สำเร็จ');
-      const song = await loadLocalSong(input.files[0], await response.json());
+      const song = await loadLocalSong(file, await response.json());
       if (current !== request || selectionToken !== generation) return;
       localSong = song;
-      selectedSong = localSongId;
+      selectedSong = songId;
       showSelection();
-      play.disabled = false;
-      status.textContent = 'พร้อมเล่น: ' + song.name;
+      ready(true);
+      status.textContent = 'Ready: ' + song.name;
+      try {
+        await cacheAudio(songId, file);
+        if (current === request && selectionToken === generation)
+          status.textContent = 'Ready: ' + song.name + ' · Saved on this browser';
+      } catch {
+        if (current === request && selectionToken === generation)
+          status.textContent =
+            'Ready for this visit. Browser storage unavailable; load again next time.';
+      }
     } catch (error) {
       if (current === request && selectionToken === generation) status.textContent = error.message;
     }
@@ -537,6 +574,7 @@ function openComments(score) {
   let editing = null;
   const input = dialog.querySelector('input'),
     submit = dialog.querySelector('[type=submit]');
+  const avatars = new Map();
   const unsub = api.watchComments(
     score.id,
     (rows) => {
@@ -544,9 +582,29 @@ function openComments(score) {
         rows
           .map(
             (row) =>
-              `<article data-comment-id="${esc(row.id)}"><strong>${esc(row.playerName)}</strong><p>${esc(row.text)}</p>${row.uid === user.uid ? '<button class="edit-comment">Edit comment</button><button class="delete-comment">Delete comment</button>' : ''}</article>`,
+              `<article data-comment-id="${esc(row.id)}"><div class="comment-author"><span class="avatar" data-author="${esc(row.uid)}">${esc(row.playerName.slice(0, 1))}</span><strong>${esc(row.playerName)}</strong></div><p>${esc(row.text)}</p>${row.uid === user.uid ? '<button class="edit-comment">Edit comment</button><button class="delete-comment">Delete comment</button>' : ''}</article>`,
           )
           .join('') || '<p>No comments yet</p>';
+      for (const row of rows) {
+        if (!avatars.has(row.uid))
+          avatars.set(
+            row.uid,
+            api.getCommentAvatar(row.uid).catch(() => null),
+          );
+        avatars.get(row.uid).then((photo) => {
+          if (!photo || !dialog.isConnected) return;
+          for (const avatar of dialog.querySelectorAll('[data-author]')) {
+            if (avatar.dataset.author !== row.uid) continue;
+            const image = document.createElement('img');
+            image.src = photo;
+            image.alt = row.playerName + ' profile picture';
+            image.onerror = () => {
+              avatar.textContent = row.playerName.slice(0, 1);
+            };
+            avatar.replaceChildren(image);
+          }
+        });
+      }
       for (const row of rows.filter((r) => r.uid === user.uid)) {
         const article = [...dialog.querySelectorAll('article')].find(
           (el) => el.dataset.commentId === row.id,

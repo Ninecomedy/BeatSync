@@ -203,3 +203,13 @@ export const watchPlacement = (uid, callback, error) => {
     unsubscribe();
   };
 };
+
+export async function getCommentAvatar(uid) {
+  const snapshot = await getDoc(doc(db, 'profiles', uid));
+  const photo = snapshot.exists() ? snapshot.data().photo : null;
+  return typeof photo === 'string' &&
+    photo.length <= 32768 &&
+    /^data:image\/webp;base64,[A-Za-z0-9+/=]+$/.test(photo)
+    ? photo
+    : null;
+}

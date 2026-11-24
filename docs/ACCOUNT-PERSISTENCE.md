@@ -6,4 +6,4 @@ Settings are private per UID. On first login, a transaction migrates local prefe
 
 Completed rounds save scores by song and difficulty. Leaderboards filter by both, while Profile shows the highest score across songs. Existing Neon Pulse scores without a difficulty remain visible. Rules check owner identity, arithmetic and note totals against admin-managed metadata. This is not server-authoritative anti-cheat.
 
-Public source excludes recordings and credentials. Generate the original Neon Pulse audio with `node scripts/generate-hosted-demo.mjs`; obtain other audio legally and use the local picker. No audio is uploaded. Private profile thumbnails use bounded Firestore fields, not a billed Storage bucket.
+Public source excludes recordings and credentials. Generate the original Neon Pulse audio with `node scripts/generate-hosted-demo.mjs`; obtain other audio legally and use the local picker. No audio is uploaded. Profile thumbnails use bounded Firestore fields, not a billed Storage bucket. Signed-in comment readers may fetch a single display-only profile; documents with additional private fields and profile listing remain restricted.

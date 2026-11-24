@@ -1337,3 +1337,34 @@ canvas {
     grid-template-columns: 1fr;
   }
 }
+
+/* Keep only the existing outer Settings surface. */
+.settings-dialog .settings-card {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  padding: 12px 4px 4px;
+}
+.comment-author {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.comment-author .avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+.audio-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+}
+.audio-actions a {
+  text-decoration: none;
+  padding: 8px 12px;
+}
