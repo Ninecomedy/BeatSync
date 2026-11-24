@@ -52,9 +52,9 @@ export const chartUrl = (key, songId = 'monitoring') => {
 };
 
 export const AUDIO_DOWNLOADS = {
-  monitoring: 'https://drive.google.com/file/d/1OYilRGyFrVIkfknmv88Od950Z9UkDgD0/view',
-  yuusha: 'https://drive.google.com/file/d/1H1PUS6XP4sxii7y6YhZ10E_NSOQf8naa/view',
-  hibana: 'https://drive.google.com/file/d/1qxTnaz972OgR-br-Umb6FSVgNdJCLsDe/view',
-  mesmerizer: 'https://drive.google.com/file/d/1IRpVrP0Wbw7Y7zVWS8RoE1TDuApbmZ5S/view',
-  'rabbit-hole': 'https://drive.google.com/file/d/1xny36aIjTZ80YnBb1W4l5fODyhw5jPKG/view',
+  monitoring: 'https://drive.google.com/file/d/1qxTnaz972OgR-br-Umb6FSVgNdJCLsDe/view',
+  yuusha: 'https://drive.google.com/file/d/1xny36aIjTZ80YnBb1W4l5fODyhw5jPKG/view',
+  hibana: 'https://drive.google.com/file/d/1OYilRGyFrVIkfknmv88Od950Z9UkDgD0/view',
+  mesmerizer: 'https://drive.google.com/file/d/1H1PUS6XP4sxii7y6YhZ10E_NSOQf8naa/view',
+  'rabbit-hole': 'https://drive.google.com/file/d/1IRpVrP0Wbw7Y7zVWS8RoE1TDuApbmZ5S/view',
 };
