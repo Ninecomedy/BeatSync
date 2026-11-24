@@ -421,7 +421,7 @@ function leaderboardScreen() {
           ? rows
               .map(
                 (row, i) =>
-                  `<tr data-score-id="${esc(row.id)}"><td>${i + 1}</td><td><span class="avatar">${esc(row.playerName.slice(0, 1))}</span><span>${esc(row.playerName)}</span></td><td>${row.score.toLocaleString()}</td><td class="reactions"><button data-kind="like" aria-label="Like ${esc(row.playerName)}" aria-pressed="false">Like <span>0</span></button><button data-kind="love" aria-label="Love ${esc(row.playerName)}" aria-pressed="false">♥ <span>0</span></button></td></tr>`,
+                  `<tr data-score-id="${esc(row.id)}"><td>${i + 1}</td><td><span class="avatar">${esc(row.playerName.slice(0, 1))}</span><span>${esc(row.playerName)}</span></td><td>${row.score.toLocaleString()}</td><td class="reactions"><button data-kind="like" aria-label="Like ${esc(row.playerName)}" aria-pressed="false">Like <span>0</span></button><button data-kind="love" aria-label="Love ${esc(row.playerName)}" aria-pressed="false">♥ <span>0</span></button><button data-comments aria-label="Comment on ${esc(row.playerName)} score">Comment</button></td></tr>`,
               )
               .join('')
           : '<tr><td colspan="4">ยังไม่มีคะแนน เล่นเพลงแรกเพื่อขึ้นอันดับ!</td></tr>';
@@ -456,7 +456,8 @@ function leaderboardScreen() {
               openComments(row);
             }
           };
-          tr.querySelectorAll('button').forEach(
+          tr.querySelector('[data-comments]').onclick = () => openComments(row);
+          tr.querySelectorAll('[data-kind]').forEach(
             (b) =>
               (b.onclick = () =>
                 action(b, () => api.toggleReaction(row.id, user.uid, b.dataset.kind))),
@@ -570,13 +571,28 @@ function openComments(score) {
 }
 function profileScreen() {
   shell(
-    `<main class="profile"><h1>${icon('b1a56', 'PROFILE')}</h1><div class="profile-layout"><div class="profile-avatar">${profile.photo ? `<img src="${esc(profile.photo)}" alt="Profile picture" width="128" height="128" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : esc(profile.name.slice(0, 1))}</div><section><h2>${esc(profile.name)}</h2><p>Feel the Beat · Sync Your World</p><div class="glass profile-stat">${icon('7fff4', '')}<div><strong id="best-score">—</strong><p>Highest Score</p></div></div><p class="hint">All songs · Highest completed score</p><button data-page="songs" class="outline">Song Selection</button></section></div></main>`,
+    `<main class="profile"><h1>${icon('b1a56', 'PROFILE')}</h1><div class="profile-layout"><div class="profile-avatar">${profile.photo ? `<img src="${esc(profile.photo)}" alt="Profile picture" width="128" height="128" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : esc(profile.name.slice(0, 1))}</div><section><h2>${esc(profile.name)}</h2><p>Feel the Beat · Sync Your World</p><div class="glass profile-stat">${icon('7fff4', '')}<div><strong id="best-score">—</strong><p>Highest Score</p></div></div><p id="best-score-song" class="hint" aria-live="polite">Loading score details…</p><button data-page="songs" class="outline">Song Selection</button></section></div></main>`,
   );
   subscriptions.push(
     api.watchBest(
       user.uid,
-      (rows) =>
-        (root.querySelector('#best-score').textContent = (rows[0]?.score ?? 0).toLocaleString()),
+      (rows) => {
+        const best = rows[0];
+        root.querySelector('#best-score').textContent = (best?.score ?? 0).toLocaleString();
+        const song = best && LOCAL_SONGS[best.songId];
+        const title =
+          best?.songId === 'neon-pulse-v1' ? 'Neon Pulse' : song?.title || 'Unknown song';
+        const label =
+          best?.songId === 'neon-pulse-v1' && !best.difficulty
+            ? 'Normal'
+            : song?.charts[best?.difficulty]?.label ||
+              (best?.difficulty === 'normal'
+                ? 'Normal'
+                : best?.difficulty || 'Unspecified difficulty');
+        root.querySelector('#best-score-song').textContent = best
+          ? title + ' · ' + label
+          : 'No completed scores yet';
+      },
       fail,
     ),
   );

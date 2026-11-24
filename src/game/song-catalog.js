@@ -27,6 +27,7 @@ export const LOCAL_SONGS = {
     charts: LOCAL_CHARTS,
   },
   ...IMPORTED_SONGS,
+  yuusha: { ...IMPORTED_SONGS.yuusha, title: 'Yuusha', playLabel: 'Play Yuusha' },
   // Reuse the original x1.0 asset unchanged; its legacy filename is not a selectable difficulty.
   'rabbit-hole': {
     ...IMPORTED_SONGS['rabbit-hole'],
