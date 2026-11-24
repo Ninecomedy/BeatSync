@@ -1,5 +1,4 @@
 import { setSettingsUser, saveSettings, loadSettings } from '../settings/store.js';
-import { profileThumbnail } from './profile-picture.js';
 import { loadHostedSong } from '../game/hosted-audio.js';
 import { emulatorMode } from '../firebase/client.js';
 import * as api from '../firebase/service.js';
@@ -571,44 +570,8 @@ function openComments(score) {
 }
 function profileScreen() {
   shell(
-    `<main class="profile"><h1>${icon('b1a56', 'PROFILE')}</h1><div class="profile-layout"><div class="profile-avatar">${profile.photo ? `<img src="${esc(profile.photo)}" alt="Profile picture" width="128" height="128" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : esc(profile.name.slice(0, 1))}</div><section><h2>${esc(profile.name)}</h2><label>Change profile picture<input id="profile-photo" type="file" accept="image/png,image/jpeg,image/webp"></label><button id="remove-photo" class="outline" ${profile.photo ? '' : 'hidden'}>Remove picture</button><p id="photo-status" role="status">128px private thumbnail · up to 5 MB source</p><p>Feel the Beat · Sync Your World</p><div class="glass profile-stat">${icon('7fff4', '')}<div><strong id="best-score">—</strong><p>Highest Score</p></div></div><p class="hint">All songs · Highest completed score</p><button data-page="songs" class="outline">Song Selection</button></section></div></main>`,
+    `<main class="profile"><h1>${icon('b1a56', 'PROFILE')}</h1><div class="profile-layout"><div class="profile-avatar">${profile.photo ? `<img src="${esc(profile.photo)}" alt="Profile picture" width="128" height="128" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : esc(profile.name.slice(0, 1))}</div><section><h2>${esc(profile.name)}</h2><p>Feel the Beat · Sync Your World</p><div class="glass profile-stat">${icon('7fff4', '')}<div><strong id="best-score">—</strong><p>Highest Score</p></div></div><p class="hint">All songs · Highest completed score</p><button data-page="songs" class="outline">Song Selection</button></section></div></main>`,
   );
-  const photoInput = root.querySelector('#profile-photo');
-  const removePhoto = root.querySelector('#remove-photo');
-  removePhoto.onclick = () =>
-    action(removePhoto, async () => {
-      const uid = user.uid;
-      photoInput.disabled = true;
-      try {
-        await api.removeProfilePicture(uid);
-        if (user?.uid !== uid) return;
-        delete profile.photo;
-        if (page === 'profile') render();
-        notify('Profile picture removed');
-      } finally {
-        photoInput.disabled = false;
-      }
-    });
-  photoInput.onchange = async () => {
-    if (!photoInput.files.length) return;
-    removePhoto.disabled = true;
-    const uid = user.uid;
-    photoInput.disabled = true;
-    const status = root.querySelector('#photo-status');
-    try {
-      const photo = await profileThumbnail(photoInput.files[0]);
-      await api.saveProfilePicture(uid, photo);
-      if (user?.uid !== uid) return;
-      profile.photo = photo;
-      if (page === 'profile') render();
-      notify('Profile picture saved');
-    } catch (error) {
-      status.textContent = error.message;
-    } finally {
-      photoInput.disabled = false;
-      removePhoto.disabled = false;
-    }
-  };
   subscriptions.push(
     api.watchBest(
       user.uid,
