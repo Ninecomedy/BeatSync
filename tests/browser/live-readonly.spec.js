@@ -16,7 +16,10 @@ test('production read-only UI assets and guest Settings navigation', async ({ pa
   const path = html.match(/src="([^\"]+\.js)"/)[1];
   const js = await (await request.get(path)).text();
   expect(js).toBe(fs.readFileSync('dist' + path, 'utf8'));
+  const appPath = '/assets/' + fs.readdirSync('dist/assets').find(name => /^app-.*\.js$/.test(name));
+  const appJs = await (await request.get(appPath)).text();
+  expect(appJs).toBe(fs.readFileSync('dist' + appPath, 'utf8'));
   for (const text of ['Best Placement', 'Highest Score', 'settings-dialog', 'comments-header'])
-    expect(js).toContain(text);
-  expect(js).not.toContain('Full song · คะแนนเฉพาะรอบนี้');
+    expect(appJs).toContain(text);
+  expect(appJs).not.toContain('Full song · คะแนนเฉพาะรอบนี้');
 });
