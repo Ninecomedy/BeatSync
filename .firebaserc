@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "demo-beatsync",
+    "production": "beatsync-37390"
+  }
+}

@@ -1,0 +1,95 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // profiles/{uid}: name (1..24), createdAt timestamp. Public game name only; no email.
+    // scores/{scoreId}: immutable uid/name/songId, integer score/combo/hit/miss counts, timestamp.
+    // scores/{scoreId}/reactions/{uid}: like/love booleans, updatedAt timestamp.
+    // messages/{id}: immutable uid/name, text (1..280), createdAt timestamp.
+    // scores/{scoreId}/comments/{id}: uid/playerName/text/createdAt/updatedAt, owner edits/deletes.
+    // songs/{id}: admin-provisioned metadata and authorized static asset paths; clients read only.
+    function signedIn() { return request.auth != null; }
+    function owner(uid) { return signedIn() && request.auth.uid == uid; }
+    function named(data) {
+      return data.playerName == get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.name;
+    }
+    function validProfile(d) {
+      return d.keys().hasAll(['name', 'createdAt']) && d.keys().hasOnly(['name', 'createdAt', 'photo'])
+        && d.name is string && d.name.size() >= 1 && d.name.size() <= 24 && d.name.matches('.*[^ ].*')
+        && d.createdAt is timestamp
+        && (!('photo' in d) || (d.photo is string && d.photo.size() <= 32768
+          && d.photo.matches('data:image/webp;base64,[A-Za-z0-9+/=]+')));
+    }
+    function validScore(d) {
+      return d.keys().hasAll(['uid','playerName','songId','score','maxCombo','perfect','good','miss','createdAt'])
+        && d.keys().hasOnly(['uid','playerName','songId','score','maxCombo','perfect','good','miss','createdAt'])
+        && owner(d.uid) && named(d) && d.songId == 'neon-pulse-v1'
+        && d.perfect is int && d.good is int && d.miss is int
+        && d.perfect >= 0 && d.good >= 0 && d.miss >= 0
+        && d.perfect + d.good + d.miss == 48
+        && d.score is int && d.score == d.perfect * 1000 + d.good * 500
+        && d.maxCombo is int && d.maxCombo >= 0 && d.maxCombo <= d.perfect + d.good
+        && d.createdAt == request.time;
+    }
+    function validReaction(d) {
+      return d.keys().hasAll(['like','love','updatedAt']) && d.keys().hasOnly(['like','love','updatedAt'])
+        && d.like is bool && d.love is bool && d.updatedAt == request.time;
+    }
+    function validMessage(d) {
+      return d.keys().hasAll(['uid','playerName','text','createdAt']) && d.keys().hasOnly(['uid','playerName','text','createdAt'])
+        && owner(d.uid) && named(d) && d.text is string && d.text.size() >= 1 && d.text.size() <= 280
+        && d.text.matches('.*[^ ].*') && d.createdAt == request.time;
+    }
+    function validComment(d) {
+      return d.keys().hasAll(['uid','playerName','text','createdAt','updatedAt'])
+        && d.keys().hasOnly(['uid','playerName','text','createdAt','updatedAt'])
+        && owner(d.uid) && d.playerName is string && d.playerName.size() >= 1 && d.playerName.size() <= 24
+        && d.text is string && d.text.size() >= 1 && d.text.size() <= 280 && d.text.matches('.*[^ ].*')
+        && d.createdAt is timestamp && d.updatedAt == request.time;
+    }
+    function validKey(k) {
+      return k is string && k.matches('Key[A-Z]|Digit[0-9]|Arrow(Left|Right|Up|Down)|Space|Comma|Period|Semicolon|Slash|BracketLeft|BracketRight|Minus|Equal|Backquote|Quote|Backslash');
+    }
+    function validSettings(d) {
+      return d.keys().hasAll(['noteSpeed','musicVolume','sfxVolume','keys'])
+        && d.keys().hasOnly(['noteSpeed','musicVolume','sfxVolume','keys'])
+        && d.noteSpeed is number && d.noteSpeed >= 0.5 && d.noteSpeed <= 2
+        && d.musicVolume is number && d.musicVolume >= 0 && d.musicVolume <= 1
+        && d.sfxVolume is number && d.sfxVolume >= 0 && d.sfxVolume <= 1
+        && d.keys is list && d.keys.size() == 4 && d.keys.toSet().size() == 4
+        && validKey(d.keys[0]) && validKey(d.keys[1]) && validKey(d.keys[2]) && validKey(d.keys[3]);
+    }
+    match /settings/{uid} {
+      allow read: if owner(uid);
+      allow create, update: if owner(uid) && validSettings(request.resource.data);
+    }
+    match /songs/{songId} { allow read: if signedIn(); }
+    match /profiles/{uid} {
+      allow read: if owner(uid);
+      allow create: if owner(uid) && validProfile(request.resource.data) && request.resource.data.createdAt == request.time;
+      allow update: if owner(uid) && validProfile(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+    match /scores/{scoreId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && validScore(request.resource.data);
+      match /comments/{commentId} {
+        allow read: if signedIn() && exists(/databases/$(database)/documents/scores/$(scoreId));
+        allow create: if signedIn() && exists(/databases/$(database)/documents/scores/$(scoreId))
+          && validComment(request.resource.data) && named(request.resource.data) && request.resource.data.createdAt == request.time;
+        allow update: if owner(resource.data.uid) && exists(/databases/$(database)/documents/scores/$(scoreId))
+          && validComment(request.resource.data) && request.resource.data.uid == resource.data.uid
+          && request.resource.data.playerName == resource.data.playerName && request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if owner(resource.data.uid);
+      }
+      match /reactions/{uid} {
+        allow read: if signedIn() && exists(/databases/$(database)/documents/scores/$(scoreId));
+        allow delete: if owner(uid);
+        allow create, update: if owner(uid) && exists(/databases/$(database)/documents/scores/$(scoreId)) && validReaction(request.resource.data);
+      }
+    }
+    match /messages/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && validMessage(request.resource.data);
+    }
+  }
+}

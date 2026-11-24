@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.env*
+!.env.example
+*serviceAccount*.json
+*service-account*.json
+*.pem
+*.key
+*-debug.log
+*-debug.*.log
+.firebase/
+emulator-data/
+test-results/
+playwright-report/
+artifacts/

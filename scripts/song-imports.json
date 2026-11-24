@@ -1,0 +1,130 @@
+[
+  {
+    "id": "yuusha",
+    "archive": "2070252 YOASOBI - Yuusha (TV Size) [no video].osz",
+    "setId": "2070252",
+    "title": "Yuusha (TV Size)",
+    "artist": "YOASOBI",
+    "ratingSource": "https://osu.ppy.sh/beatmapsets/2070252",
+    "charts": [
+      {
+        "beatmapId": "4331793",
+        "version": "Easy",
+        "difficulty": "Easy",
+        "stars": 1.49,
+        "publishedStars": 1.49445,
+        "expectedNotes": 353
+      },
+      {
+        "beatmapId": "4331794",
+        "version": "Hard",
+        "difficulty": "Med",
+        "stars": 3.12,
+        "publishedStars": 3.12802,
+        "expectedNotes": 813
+      },
+      {
+        "beatmapId": "4331792",
+        "version": "CS' Fairy Tale",
+        "difficulty": "Hard",
+        "stars": 4.44,
+        "publishedStars": 4.44098,
+        "expectedNotes": 1192
+      }
+    ]
+  },
+  {
+    "id": "hibana",
+    "archive": "662688 DECO_27 - HIBANA.osz",
+    "setId": "662688",
+    "title": "HIBANA",
+    "artist": "DECO*27",
+    "ratingSource": "https://osu.ppy.sh/beatmapsets/662688",
+    "charts": [
+      {
+        "beatmapId": "1567254",
+        "version": "EZ",
+        "difficulty": "Easy",
+        "stars": 1.28,
+        "publishedStars": 1.28955,
+        "expectedNotes": 656
+      },
+      {
+        "beatmapId": "1432276",
+        "version": "NM",
+        "difficulty": "Med",
+        "stars": 1.94,
+        "publishedStars": 1.94753,
+        "expectedNotes": 1011
+      },
+      {
+        "beatmapId": "1578289",
+        "version": "HD",
+        "difficulty": "Hard",
+        "stars": 3.13,
+        "publishedStars": 3.13145,
+        "expectedNotes": 1681
+      },
+      {
+        "beatmapId": "1593446",
+        "version": "MX",
+        "difficulty": "Lunatic",
+        "stars": 3.98,
+        "publishedStars": 3.98368,
+        "expectedNotes": 2290
+      }
+    ]
+  },
+  {
+    "id": "mesmerizer",
+    "archive": "2178387 32ki feat. Hatsune Miku & Kasane Teto - Mesmerizer.osz",
+    "setId": "2178387",
+    "title": "Mesmerizer",
+    "artist": "32ki feat. Hatsune Miku & Kasane Teto",
+    "ratingSource": "https://osu.ppy.sh/beatmapsets/2178387",
+    "charts": [
+      {
+        "beatmapId": "4603030",
+        "version": "Normal",
+        "difficulty": "Med",
+        "stars": 2.0,
+        "publishedStars": 2.00155,
+        "expectedNotes": 946
+      },
+      {
+        "beatmapId": "4672485",
+        "version": "Light Insane",
+        "difficulty": "Hard",
+        "stars": 3.58,
+        "publishedStars": 3.581,
+        "expectedNotes": 1683
+      }
+    ]
+  },
+  {
+    "id": "rabbit-hole",
+    "archive": "2141937 DECO_27 - Rabbit Hole.osz",
+    "setId": "2141937",
+    "title": "Rabbit Hole",
+    "artist": "DECO*27",
+    "ratingSource": "https://osu.ppy.sh/beatmapsets/2141937",
+    "charts": [
+      {
+        "beatmapId": "4621071",
+        "version": "x0.9",
+        "difficulty": "Hard",
+        "stars": 4.0,
+        "publishedStars": 4.00235,
+        "expectedNotes": 2210
+      },
+      {
+        "beatmapId": "4508345",
+        "version": "x1.0",
+        "difficulty": "Lunatic",
+        "stars": 4.37,
+        "publishedStars": 4.37948,
+        "expectedNotes": 2210
+      }
+    ]
+  }
+]

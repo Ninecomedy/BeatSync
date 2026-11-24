@@ -1,0 +1,140 @@
+{
+  "neon-pulse-v1": {
+    "title": "Neon Pulse",
+    "artist": "BeatSync",
+    "mode": "hosted",
+    "audioPath": "/audio/neon-pulse.wav",
+    "chartPath": "/beatmaps/neon-pulse.json",
+    "duration": 27,
+    "sha256": "65629306316190b48a1446194f792f53d849356064a49ffbcb1d74637bedb698",
+    "rights": "Original synthesized BeatSync demo"
+  },
+  "monitoring": {
+    "title": "モニタリング",
+    "mode": "local",
+    "audioFilename": "audio.mp3",
+    "charts": {
+      "medium": "/beatmaps/monitoring-medium.json",
+      "hard": "/beatmaps/monitoring-hard.json"
+    },
+    "counts": {
+      "medium": 1559,
+      "hard": 2217
+    },
+    "defaultDifficulty": "hard"
+  },
+  "yuusha": {
+    "title": "Yuusha (TV Size)",
+    "artist": "YOASOBI",
+    "mode": "local",
+    "defaultDifficulty": "hard",
+    "charts": {
+      "easy": "/beatmaps/yuusha-easy.json",
+      "med": "/beatmaps/yuusha-med.json",
+      "hard": "/beatmaps/yuusha-hard.json"
+    },
+    "audioFilenames": {
+      "easy": "audio.ogg",
+      "med": "audio.ogg",
+      "hard": "audio.ogg"
+    },
+    "counts": {
+      "easy": 353,
+      "med": 813,
+      "hard": 1192
+    },
+    "labels": {
+      "easy": "Easy",
+      "med": "Med",
+      "hard": "Hard"
+    },
+    "stars": {
+      "easy": 1.49,
+      "med": 3.12,
+      "hard": 4.44
+    }
+  },
+  "hibana": {
+    "title": "HIBANA",
+    "artist": "DECO*27",
+    "mode": "local",
+    "defaultDifficulty": "hard",
+    "charts": {
+      "easy": "/beatmaps/hibana-easy.json",
+      "med": "/beatmaps/hibana-med.json",
+      "hard": "/beatmaps/hibana-hard.json",
+      "lunatic": "/beatmaps/hibana-lunatic.json"
+    },
+    "audioFilenames": {
+      "easy": "audio.mp3",
+      "med": "audio.mp3",
+      "hard": "audio.mp3",
+      "lunatic": "audio.mp3"
+    },
+    "counts": {
+      "easy": 656,
+      "med": 1011,
+      "hard": 1681,
+      "lunatic": 2290
+    },
+    "labels": {
+      "easy": "Easy",
+      "med": "Med",
+      "hard": "Hard",
+      "lunatic": "Lunatic"
+    },
+    "stars": {
+      "easy": 1.28,
+      "med": 1.94,
+      "hard": 3.13,
+      "lunatic": 3.98
+    }
+  },
+  "mesmerizer": {
+    "title": "Mesmerizer",
+    "artist": "32ki feat. Hatsune Miku & Kasane Teto",
+    "mode": "local",
+    "defaultDifficulty": "hard",
+    "charts": {
+      "med": "/beatmaps/mesmerizer-med.json",
+      "hard": "/beatmaps/mesmerizer-hard.json"
+    },
+    "audioFilenames": {
+      "med": "audio.mp3",
+      "hard": "audio.mp3"
+    },
+    "counts": {
+      "med": 946,
+      "hard": 1683
+    },
+    "labels": {
+      "med": "Med",
+      "hard": "Hard"
+    },
+    "stars": {
+      "med": 2,
+      "hard": 3.58
+    }
+  },
+  "rabbit-hole": {
+    "title": "Rabbit Hole",
+    "artist": "DECO*27",
+    "mode": "local",
+    "defaultDifficulty": "hard",
+    "charts": {
+      "hard": "/beatmaps/rabbit-hole-lunatic.json"
+    },
+    "audioFilenames": {
+      "hard": "audio.mp3"
+    },
+    "counts": {
+      "hard": 2210
+    },
+    "labels": {
+      "hard": "Hard"
+    },
+    "stars": {
+      "hard": 4
+    }
+  }
+}
