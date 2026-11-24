@@ -11,7 +11,7 @@ import {
   collection,
   doc,
   getDoc,
-  getCountFromServer,
+  getDocs,
   updateDoc,
   deleteDoc,
   deleteField,
@@ -51,10 +51,8 @@ export const watchScores = (cb, error, songId = 'neon-pulse-v1', difficulty = 'n
       collection(db, 'scores'),
       where('songId', '==', songId),
       ...(songId === 'neon-pulse-v1' ? [] : [where('difficulty', '==', difficulty)]),
-      orderBy('score', 'desc'),
-      limit(20),
     ),
-    (rows) => cb(rankRows(rows)),
+    (rows) => cb(rankRows(rows).slice(0, 20)),
     error,
   );
 export const watchBest = (uid, cb, error, songId, difficulty) =>
@@ -176,7 +174,7 @@ export const watchPlacement = (uid, callback, error) => {
       try {
         const placements = await Promise.all(
           bestPerScope(rows).map(async (row) => {
-            const higher = await getCountFromServer(
+            const higher = await getDocs(
               query(
                 collection(db, 'scores'),
                 where('songId', '==', row.songId),
@@ -187,7 +185,8 @@ export const watchPlacement = (uid, callback, error) => {
                 orderBy('score', 'desc'),
               ),
             );
-            return { ...row, rank: higher.data().count + 1 };
+            const higherUids = new Set(higher.docs.map(doc => doc.data().uid).filter(other => other && other !== uid));
+            return { ...row, rank: higherUids.size + 1 };
           }),
         );
         if (active && current === revision) callback(bestPlacement(placements));
